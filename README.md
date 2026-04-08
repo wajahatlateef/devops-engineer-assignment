@@ -2,6 +2,7 @@
 
 ## Overview
 This project demonstrates a simple CI/CD pipeline to deploy a microservice to Kubernetes.
+Also i have added kubernetes manifest and python script.py file to this repo which is part of this assignment. 
 
 On every push to `main`:
 - Docker image is built  
@@ -46,6 +47,7 @@ helm upgrade --install devops-app ./helm-chart
 
 ## 🔍 Verify
 kubectl get pods
+
 kubectl get svc
 
 
