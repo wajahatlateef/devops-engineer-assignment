@@ -1,0 +1,10 @@
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: ""
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000

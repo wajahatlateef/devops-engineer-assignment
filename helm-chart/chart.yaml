@@ -1,0 +1,5 @@
+name: devops-app
+description: Helm chart for DevOps app
+type: application
+version: 0.1.0
+appVersion: "1.0"
