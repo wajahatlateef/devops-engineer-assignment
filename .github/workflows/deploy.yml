@@ -1,0 +1,63 @@
+name: CI/CD - ECR + EKS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: devops-app
+  CLUSTER_NAME: my-eks-cluster
+  HELM_RELEASE: devops-app
+  NAMESPACE: default
+
+jobs:
+  deploy:
+    runs-on: ubuntu:22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set Tag
+        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Image
+        run: docker build -t $ECR_REPOSITORY:$TAG .
+
+      - name: Push Image
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY
+
+          docker tag $ECR_REPOSITORY:$TAG $ECR_URI:$TAG
+          docker push $ECR_URI:$TAG
+
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy via Helm
+        run: |
+          helm upgrade --install $HELM_RELEASE ./helm-chart \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            --set image.repository=$ECR_URI \
+            --set image.tag=$TAG
+
+      - name: Verify
+        run: kubectl rollout status deployment/$HELM_RELEASE -n $NAMESPACE
