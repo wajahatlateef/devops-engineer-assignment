@@ -58,10 +58,25 @@ Basic CI/CD pipeline using GitHub Actions, Docker, AWS ECR, EKS, and Helm.
 
 
 
-## Script to check website health 
-This script is developed in python having 3 different methods as
-get_timestamp() →  This method is responsible to get the timestamp of when the check is performed on the website to check the uptime of the website url passed in check_website(url) method.
+## Website Health Check Script
 
-log_message(message) → This method takes a paramneter as message which it prints it to log file.
+This is a simple Python script to monitor the health of a website by checking its HTTP status and logging the results.
 
-check_website(url) →  This method gets a paramneter as url, this is the endpoint of the website to be monitored.
+### Functions
+
+- **get_timestamp()**  
+  Returns the current timestamp. This is used to record when each health check is performed.
+
+- **log_message(message)**  
+  Takes a message as input and writes it to a log file along with the timestamp.
+
+- **check_website(url)**  
+  Accepts a website URL as input and checks its availability by making an HTTP request.  
+  Logs whether the website is **UP** or **DOWN** based on the response status.
+
+### Usage
+
+Update the URL inside the script and run:
+
+```bash
+python script.py
