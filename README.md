@@ -55,3 +55,13 @@ kubectl get svc
 
 ## 🧠 Summary
 Basic CI/CD pipeline using GitHub Actions, Docker, AWS ECR, EKS, and Helm.
+
+
+
+## Script to check website health 
+This script is developed in python having 3 different methods as
+get_timestamp() →  This method is responsible to get the timestamp of when the check is performed on the website to check the uptime of the website url passed in check_website(url) method.
+
+log_message(message) → This method takes a paramneter as message which it prints it to log file.
+
+check_website(url) →  This method gets a paramneter as url, this is the endpoint of the website to be monitored.
