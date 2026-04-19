@@ -1,4 +1,4 @@
-name: CI/CD - ECR + EKS
+name: Build and Deploy to EKS
 
 on:
   push:
@@ -7,57 +7,63 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: devops-app
-  CLUSTER_NAME: my-eks-cluster
+  ECR_REPOSITORY: web-service-ecr
+  CLUSTER_NAME: web-service-eks
   HELM_RELEASE: devops-app
   NAMESPACE: default
 
 jobs:
   deploy:
-    runs-on: ubuntu:22.04
+    name: Build, Push, Deploy
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set Tag
-        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-      - name: Configure AWS
+      # 🔐 Configure AWS (OIDC recommended)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: devops-aws-role
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to ECR
+      # 🐳 Login to ECR
+      - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Image
-        run: docker build -t $ECR_REPOSITORY:$TAG .
+      # 🏷️ Set image tag
+      - name: Extract commit SHA
+        id: vars
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      - name: Push Image
+      # 🏗️ Build & Push Docker Image
+      - name: Build and push Docker image
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY
+          IMAGE_URI=$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}
 
-          docker tag $ECR_REPOSITORY:$TAG $ECR_URI:$TAG
-          docker push $ECR_URI:$TAG
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
 
-          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
+      # 🔗 Update kubeconfig
       - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
-
-      - name: Setup Helm
-        uses: azure/setup-helm@v3
-
-      - name: Deploy via Helm
         run: |
-          helm upgrade --install $HELM_RELEASE ./helm-chart \
-            --namespace $NAMESPACE \
-            --create-namespace \
-            --set image.repository=$ECR_URI \
-            --set image.tag=$TAG
+          aws eks update-kubeconfig \
+            --name ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }}
 
-      - name: Verify
-        run: kubectl rollout status deployment/$HELM_RELEASE -n $NAMESPACE
+      # 🚀 Deploy using Helm
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install ${{ env.HELM_RELEASE }} ./helm-chart \
+            --namespace ${{ env.NAMESPACE }} \
+            --create-namespace \
+            --set image.repository=$(echo $IMAGE_URI | cut -d ':' -f 1) \
+            --set image.tag=${IMAGE_TAG}

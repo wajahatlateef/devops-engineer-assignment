@@ -2,18 +2,57 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: devops-app
+  labels:
+    app: devops-app
 spec:
   replicas: {{ .Values.replicaCount }}
+
+  strategy:
+    type: {{ .Values.strategy.type }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+
   selector:
     matchLabels:
       app: devops-app
+
   template:
     metadata:
       labels:
         app: devops-app
+
     spec:
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+
       containers:
         - name: devops-app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
-            - containerPort: 3000
+            - containerPort: {{ .Values.service.targetPort }}
+
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}

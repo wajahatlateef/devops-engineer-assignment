@@ -1,3 +1,4 @@
+apiVersion: v2
 name: devops-app
 description: Helm chart for DevOps app
 type: application
